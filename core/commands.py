@@ -43,21 +43,65 @@ def add(source_path: str, platforms: Dict[str, str], dotfiles_dir: Path = None):
     name = source.name
     dest = dotfiles_dir / name
     
-    if dest.exists():
-        print(f"Error: '{name}' already exists in dotfiles folder")
-        sys.exit(1)
+    dotfiles_dir_resolved = dotfiles_dir.resolve()
+    source_is_in_dotfiles = str(source).startswith(str(dotfiles_dir_resolved))
     
-    shutil.move(str(source), str(dest))
+    if source_is_in_dotfiles:
+        print(f"Error: '{name}' already exists in dotfiles folder")
+        print(f"Use 'dotfiles record {source_path}' to record existing symlink, or 'dotfiles add {source_path} -t <path>' to specify link path")
+        sys.exit(1)
+    else:
+        if dest.exists():
+            print(f"Error: '{name}' already exists in dotfiles folder")
+            sys.exit(1)
+        shutil.move(str(source), str(dest))
     
     if not platforms:
         current_platform = get_current_platform()
-        platforms[current_platform] = normalize_path(source_path)
+        platforms[current_platform] = normalize_path(str(source.resolve()))
     
     config.add_entry(name, platforms)
     config.save()
     
     print(f"Added '{name}' to dotfiles folder")
     print(f"Run 'dotfiles sync' to create the link")
+
+
+def record(source_path: str, platform: Optional[str] = None, path: Optional[str] = None, dotfiles_dir: Path = None):
+    """Record an existing symlink without moving it."""
+    config, dotfiles_dir = load_config_for_dir(dotfiles_dir)
+    
+    source = expand_path(source_path)
+    
+    if not source.exists() and not source.is_symlink():
+        print(f"Error: Path does not exist: {source}")
+        sys.exit(1)
+    
+    if not source.is_symlink():
+        print(f"Error: 'record' requires a symlink, got: {source}")
+        print("Use 'dotfiles add' for regular files/folders")
+        sys.exit(1)
+    
+    name = source.name
+    dest = dotfiles_dir / name
+    
+    if not dest.exists():
+        print(f"Error: '{name}' does not exist in dotfiles folder: {dotfiles_dir}")
+        sys.exit(1)
+    
+    current_platform = platform if platform else get_current_platform()
+    
+    if path:
+        link_path = path
+    else:
+        source_resolved = Path(os.path.abspath(str(source)))
+        link_path = str(source_resolved)
+    
+    config.add_entry(name, {current_platform: normalize_path(link_path)})
+    config.save()
+    
+    print(f"Recorded '{name}' for {current_platform}: {link_path}")
+    print(f"Run 'dotfiles sync' to verify the link")
 
 
 def edit(name: str, platform: Optional[str] = None, new_path: Optional[str] = None, dotfiles_dir: Path = None):

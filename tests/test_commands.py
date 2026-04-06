@@ -131,11 +131,11 @@ class TestAdd:
         os.chdir(dotfiles_dir)
         
         with pytest.raises(SystemExit):
-            commands.add(str(existing_file), {})
+            commands.add(str(existing_file), {"linux": "~/.config/existing.conf"})
         
         captured = capsys.readouterr()
-        assert "already exists" in captured.out
-        assert "already exists" in captured.out
+        assert "already exists in dotfiles folder" in captured.out
+        assert "dotfiles record" in captured.out
 
 
 class TestEdit:

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from core import commands
-from core.platform import SUPPORTED_PLATFORMS
+from core.platform import SUPPORTED_PLATFORMS, get_current_platform
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -29,6 +29,8 @@ def create_parser() -> argparse.ArgumentParser:
     add_parser.add_argument('--platform', '-p', action='append', nargs='+', 
                             metavar=('PLATFORM', 'PATH'),
                             help='Specify platform path (can be used multiple times)')
+    add_parser.add_argument('--link-to', '-t', dest='link_to',
+                            help='Destination path for the symlink (useful when adding files already in dotfiles folder)')
     
     edit_parser = subparsers.add_parser('edit', help='Edit link record')
     edit_parser.add_argument('name', help='Name of the entry')
@@ -54,6 +56,11 @@ def create_parser() -> argparse.ArgumentParser:
     
     default_parser = subparsers.add_parser('default', help='Set or show default dotfiles directory')
     default_parser.add_argument('path', nargs='?', help='Path to set as default (omit to show current)')
+    
+    record_parser = subparsers.add_parser('record', help='Record an existing symlink (file already in dotfiles folder)')
+    record_parser.add_argument('path', help='Path to symlink')
+    record_parser.add_argument('--platform', '-p', dest='platform',
+                            help='Platform to record (default: auto-detect)')
     
     return parser
 
@@ -148,6 +155,9 @@ def main():
                 print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
                 sys.exit(1)
             platforms = parse_platform_args(args.platform)
+            if args.link_to:
+                current_platform = get_current_platform()
+                platforms[current_platform] = args.link_to
             commands.add(args.path, platforms, dotfiles_dir)
         
         elif args.command == 'edit':
@@ -192,6 +202,12 @@ def main():
                     print("No default dotfiles directory set.")
                     print("Run 'dotfiles init <path>' to initialize and set default.")
                     print("Or use 'dotfiles default <path>' to set one manually.")
+        
+        elif args.command == 'record':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            commands.record(args.path, args.platform, None, dotfiles_dir)
     
     except FileNotFoundError as e:
         print(f"Error: {e}")
