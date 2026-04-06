@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import sys
+from pathlib import Path
+from typing import Optional
+
+from core import commands
+from core.platform import SUPPORTED_PLATFORMS
+
+
+def create_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog='dotfiles',
+        description='Cross-platform dotfiles manager'
+    )
+    
+    parser.add_argument('-d', '--dotfiles-dir', 
+                       help='Path to dotfiles folder (default: search upward from cwd)')
+    
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    init_parser = subparsers.add_parser('init', help='Initialize dotfiles folder')
+    init_parser.add_argument('path', nargs='?', default='.', 
+                           help='Path to initialize as dotfiles folder (default: current directory)')
+    
+    add_parser = subparsers.add_parser('add', help='Add file/folder to dotfiles')
+    add_parser.add_argument('path', help='Path to file/folder')
+    add_parser.add_argument('--platform', '-p', action='append', nargs='+', 
+                            metavar=('PLATFORM', 'PATH'),
+                            help='Specify platform path (can be used multiple times)')
+    
+    edit_parser = subparsers.add_parser('edit', help='Edit link record')
+    edit_parser.add_argument('name', help='Name of the entry')
+    edit_parser.add_argument('--platform', '-p', dest='platform',
+                            help='Platform to edit')
+    edit_parser.add_argument('new_path', nargs='?', help='New path for the platform')
+    
+    sync_parser = subparsers.add_parser('sync', help='Sync all links')
+    sync_parser.add_argument('--platform', '-p', dest='platform',
+                            help=f'Platform to sync (default: auto-detect)')
+    
+    restore_parser = subparsers.add_parser('restore', help='Restore from dotfiles')
+    restore_parser.add_argument('name', help='Name of the entry')
+    restore_parser.add_argument('--platform', '-p', dest='platform',
+                            help='Platform to restore (default: auto-detect)')
+    
+    remove_parser = subparsers.add_parser('remove', help='Remove entry')
+    remove_parser.add_argument('name', help='Name of the entry')
+    remove_parser.add_argument('--platform', '-p', dest='platform',
+                            help='Remove only this platform from records')
+    
+    list_parser = subparsers.add_parser('list', help='List all link records')
+    
+    default_parser = subparsers.add_parser('default', help='Set or show default dotfiles directory')
+    default_parser.add_argument('path', nargs='?', help='Path to set as default (omit to show current)')
+    
+    return parser
+
+
+def parse_platform_args(platform_args) -> dict:
+    """Parse the --platform arguments from add command."""
+    if not platform_args:
+        return {}
+    
+    result = {}
+    for arg in platform_args:
+        if len(arg) >= 2:
+            platform = arg[0]
+            path = arg[1]
+            result[platform] = path
+        elif len(arg) == 1:
+            platform = arg[0]
+            result[platform] = None
+    
+    return result
+
+
+# Global config file for default dotfiles directory
+DEFAULT_CONFIG_FILE = '~/.dotfiles_default'
+
+
+def get_default_dotfiles_dir() -> Optional[Path]:
+    """Get the default dotfiles directory from global config."""
+    default_path = Path(DEFAULT_CONFIG_FILE).expanduser()
+    if default_path.exists():
+        with open(default_path, 'r') as f:
+            path_str = f.read().strip()
+            if path_str:
+                return Path(path_str).resolve()
+    return None
+
+
+def set_default_dotfiles_dir(dotfiles_dir: Path):
+    """Set the default dotfiles directory in global config."""
+    default_path = Path(DEFAULT_CONFIG_FILE).expanduser()
+    default_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(default_path, 'w') as f:
+        f.write(str(dotfiles_dir) + '\n')
+    print(f"Set default dotfiles directory to: {dotfiles_dir}")
+
+
+def get_dotfiles_dir(args_dotfiles_dir: str = None) -> Path:
+    """Get the dotfiles directory to use.
+    
+    Priority: 1. Command line --dotfiles-dir
+               2. Global default config file
+               3. Environment variable DOTFILES_DIR
+               4. Search upward from current directory
+    """
+    if args_dotfiles_dir:
+        return Path(args_dotfiles_dir).resolve()
+    
+    default_dir = get_default_dotfiles_dir()
+    if default_dir:
+        return default_dir
+    
+    env_dir = os.environ.get('DOTFILES_DIR')
+    if env_dir:
+        return Path(env_dir).resolve()
+    
+    from core.link_records import find_config_file
+    config_path = find_config_file()
+    if config_path:
+        return config_path.parent.resolve()
+    
+    return None
+
+
+def main():
+    parser = create_parser()
+    args = parser.parse_args()
+    
+    if args.command is None:
+        parser.print_help()
+        return
+    
+    dotfiles_dir = get_dotfiles_dir(args.dotfiles_dir)
+    
+    try:
+        if args.command == 'init':
+            init_path = Path(args.path).resolve() if args.path != '.' else Path.cwd()
+            commands.init(init_path)
+            set_default_dotfiles_dir(init_path)
+        
+        elif args.command == 'add':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            platforms = parse_platform_args(args.platform)
+            commands.add(args.path, platforms, dotfiles_dir)
+        
+        elif args.command == 'edit':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            commands.edit(args.name, args.platform, args.new_path, dotfiles_dir)
+        
+        elif args.command == 'sync':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            commands.sync(args.platform, dotfiles_dir)
+        
+        elif args.command == 'restore':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            commands.restore(args.name, args.platform, dotfiles_dir)
+        
+        elif args.command == 'remove':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            commands.remove(args.name, args.platform, dotfiles_dir)
+        
+        elif args.command == 'list':
+            if not dotfiles_dir:
+                print("Error: Not in a dotfiles folder. Run 'dotfiles init' or use -d/--dotfiles-dir")
+                sys.exit(1)
+            commands.list_entries(dotfiles_dir)
+        
+        elif args.command == 'default':
+            if args.path:
+                default_dir = Path(args.path).resolve()
+                set_default_dotfiles_dir(default_dir)
+            else:
+                current_default = get_default_dotfiles_dir()
+                if current_default:
+                    print(f"Current default dotfiles directory: {current_default}")
+                else:
+                    print("No default dotfiles directory set.")
+                    print("Run 'dotfiles init <path>' to initialize and set default.")
+                    print("Or use 'dotfiles default <path>' to set one manually.")
+    
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
