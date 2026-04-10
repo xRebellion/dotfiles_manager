@@ -26,7 +26,8 @@ def create_backup(source: Path, name: str, platform: str) -> Optional[Path]:
     backup_dir = get_backup_dir() / create_backup_timestamp()
     backup_dir.mkdir(parents=True, exist_ok=True)
     
-    backup_path = backup_dir / f"{name}_{platform}"
+    backup_name = f"{Path(name).name}_{platform}"
+    backup_path = backup_dir / backup_name
     
     if source.is_symlink():
         target = source.resolve()

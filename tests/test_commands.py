@@ -130,12 +130,11 @@ class TestAdd:
         
         os.chdir(dotfiles_dir)
         
-        with pytest.raises(SystemExit):
-            commands.add(str(existing_file), {"linux": "~/.config/existing.conf"})
+        commands.add(str(existing_file), {"linux": "~/.config/existing.conf"})
         
-        captured = capsys.readouterr()
-        assert "already exists in dotfiles folder" in captured.out
-        assert "dotfiles record" in captured.out
+        config = DotfilesConfig(config_path)
+        assert "existing.conf" in config.entries
+        assert config.entries["existing.conf"]["linux"] == "~/.config/existing.conf"
 
 
 class TestEdit:

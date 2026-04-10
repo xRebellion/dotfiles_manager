@@ -43,22 +43,42 @@ def add(source_path: str, platforms: Dict[str, str], dotfiles_dir: Path = None):
     name = source.name
     dest = dotfiles_dir / name
     
-    dotfiles_dir_resolved = dotfiles_dir.resolve()
-    source_is_in_dotfiles = str(source).startswith(str(dotfiles_dir_resolved))
+    source_is_in_dotfiles = dotfiles_dir.resolve() in source.resolve().parents
     
     if source_is_in_dotfiles:
-        print(f"Error: '{name}' already exists in dotfiles folder")
-        print(f"Use 'dotfiles record {source_path}' to record existing symlink, or 'dotfiles add {source_path} -t <path>' to specify link path")
-        sys.exit(1)
+        name = str(source.resolve().relative_to(dotfiles_dir.resolve()))
+        if not platforms:
+            current_platform = get_current_platform()
+            platforms[current_platform] = normalize_path(str(Path(source_path).expanduser().resolve()))
+        config.add_entry(name, platforms)
+        config.save()
+        print(f"Added '{name}' to dotfiles folder")
+        print(f"Run 'dotfiles sync' to create the link")
+        return
     else:
+        source_path_obj = Path(source_path).expanduser()
+        if source_path_obj.is_absolute():
+            try:
+                relative_to_home = source_path_obj.relative_to(Path.home())
+                name = str(relative_to_home)
+            except ValueError:
+                name = source_path_obj.name
+        else:
+            name = str(source_path_obj)
+        
+        dest = dotfiles_dir / name
         if dest.exists():
             print(f"Error: '{name}' already exists in dotfiles folder")
+            msg = f"Use 'dotfiles record {source_path}' to record existing symlink, or 'dotfiles add {source_path} -t <path>' to specify link path"
+            print(msg)
             sys.exit(1)
+        
+        dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(source), str(dest))
     
     if not platforms:
         current_platform = get_current_platform()
-        platforms[current_platform] = normalize_path(str(source.resolve()))
+        platforms[current_platform] = normalize_path(str(Path(source_path).expanduser().resolve()))
     
     config.add_entry(name, platforms)
     config.save()
@@ -82,7 +102,9 @@ def record(source_path: str, platform: Optional[str] = None, path: Optional[str]
         print("Use 'dotfiles add' for regular files/folders")
         sys.exit(1)
     
-    name = source.name
+    source_resolved = source.resolve()
+    dotfiles_dir_resolved = dotfiles_dir.resolve()
+    name = str(source_resolved.relative_to(dotfiles_dir_resolved))
     dest = dotfiles_dir / name
     
     if not dest.exists():
@@ -178,7 +200,8 @@ def sync(platform: Optional[str] = None, dotfiles_dir: Path = None):
                 synced += 1
                 continue
             
-            backup_path = create_backup(dest_path, name, platform)
+            backup_name = Path(name).name
+            backup_path = create_backup(dest_path, backup_name, platform)
             print(f"Backed up existing: {dest_path}")
             
             if dest_path.is_dir():
