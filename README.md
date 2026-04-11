@@ -2,6 +2,12 @@
 
 A simple, link-based dotfiles manager that works across Linux and Windows.
 
+Mainly for personal use. Feel free to use or take inspiration from it
+
+Disclaimer: do note that this project is fully AI generated. I do use it personally and so far there are no issues (main commands that I usually use: init, add, add with --link-to, sync), but be aware that some things might be missed, and therefore **always back up your stuff beforehand**. I will not be responsible for any damage caused.
+
+Second Disclaimer: I only tested this on Linux and have not yet tested this on Windows (or Mac, I don't have an Mac). My Windows just recently got corrupted and I did not have time to set Windows back up for the time being. 
+
 ## No Build Required
 
 This is a pure Python script - no compilation or build process needed. Just make it executable and run.
@@ -156,8 +162,8 @@ python3 -m pytest tests/test_commands.py -v
 ## Platform Support
 
 - **Linux** - Full support with symlinks
-- **Windows** - Full support (may require Developer Mode for symlinks)
-- **macos** - Full support
+- **Windows** - Untested
+- **macos** - Untested
 
 ## How It Works
 
