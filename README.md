@@ -21,12 +21,12 @@ sudo ln -s /path/to/dotfiles /usr/local/bin/dotfiles
 ### 1. Initialize a dotfiles folder
 
 ```bash
+# Create and initialize in one step
 mkdir ~/dotfiles
-cd ~/dotfiles
-dotfiles init
+dotfiles init ~/dotfiles
 ```
 
-This creates a `.dotfiles.json` config file in the current directory.
+This creates a `.dotfiles.json` config file and sets it as the default directory.
 
 ### 2. Add dotfiles
 
@@ -48,9 +48,21 @@ dotfiles add ~/.config/nvim --platform linux ~/.config/nvim
 
 # Add for multiple platforms at once
 dotfiles add ~/.config/hypr --platform linux ~/.config/hypr --platform windows "%LOCALAPPDATA%/Hypr"
+
+# Use --link-to to specify custom symlink destination
+dotfiles add neovim-config --link-to ~/.config/nvim
 ```
 
 The file/folder is moved to the dotfiles folder and a link record is created.
+
+### 2b. Record existing symlink
+
+If you already have files in your dotfiles folder and want to create symlinks manually, use `record`:
+
+```bash
+# Record an existing symlink
+dotfiles record ~/.config/nvim
+```
 
 ### 3. Sync links
 
@@ -84,14 +96,31 @@ dotfiles remove nvim
 dotfiles remove nvim --platform windows
 ```
 
+## Dotfiles Directory Priority
+
+The dotfiles directory is resolved in this order:
+
+1. `-d/--dotfiles-dir` command line argument
+2. Global default config (`~/.dotfiles_default`)
+3. `DOTFILES_DIR` environment variable
+4. Auto-detect by searching upward from current directory
+
+You can also set a default directory:
+```bash
+dotfiles default ~/dotfiles    # Set default
+dotfiles default              # Show current default
+```
+
 ## Commands Reference
 
 | Command | Description |
 |---------|-------------|
-| `-d/--dotfiles-dir <path>` | Specify dotfiles folder (or use DOTFILES_DIR env var) |
-| `init` | Initialize current directory as dotfiles folder |
+| `-d/--dotfiles-dir <path>` | Specify dotfiles folder |
+| `init [path]` | Initialize directory as dotfiles folder (default: current) |
 | `add <path>` | Add file/folder to dotfiles (auto-detects platform) |
 | `add <path> --platform <plat> [path]` | Add with specific platform destination |
+| `add <path> --link-to <path>` | Add with custom symlink destination |
+| `record <path>` | Record an existing symlink without moving |
 | `edit <name>` | Edit link record paths (interactive) |
 | `edit <name> --platform <plat> [path]` | Edit specific platform path |
 | `sync` | Sync all links for current platform |
@@ -101,6 +130,7 @@ dotfiles remove nvim --platform windows
 | `remove <name>` | Remove entry, prompt for file deletion |
 | `remove <name> --platform <plat>` | Remove only platform from records |
 | `list` | List all link records |
+| `default [path]` | Set or show default dotfiles directory |
 
 ## Global Options
 
@@ -127,7 +157,7 @@ python3 -m pytest tests/test_commands.py -v
 
 - **Linux** - Full support with symlinks
 - **Windows** - Full support (may require Developer Mode for symlinks)
-- **macos** - Planned future support
+- **macos** - Full support
 
 ## How It Works
 
