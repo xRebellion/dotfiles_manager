@@ -18,12 +18,15 @@ def create_backup_timestamp() -> str:
     return datetime.now().strftime('%Y%m%d_%H%M%S')
 
 
-def create_backup(source: Path, name: str, platform: str) -> Optional[Path]:
+def create_backup(source: Path, name: str, platform: str, base_dir: Path = None) -> Optional[Path]:
     """Create a backup of a file or folder."""
     if not source.exists():
         return None
     
-    backup_dir = get_backup_dir() / create_backup_timestamp()
+    if base_dir is None:
+        base_dir = Path.cwd()
+    
+    backup_dir = base_dir / BACKUP_FOLDER / create_backup_timestamp()
     backup_dir.mkdir(parents=True, exist_ok=True)
     
     backup_name = f"{Path(name).name}_{platform}"
