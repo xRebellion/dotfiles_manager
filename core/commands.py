@@ -78,7 +78,14 @@ def add(source_path: str, platforms: Dict[str, str], dotfiles_dir: Path = None):
     
     if not platforms:
         current_platform = get_current_platform()
-        platforms[current_platform] = normalize_path(str(Path(source_path).expanduser().resolve()))
+        source_path_obj = Path(source_path).expanduser().resolve()
+        home = Path.home()
+        try:
+            relative_to_home = source_path_obj.relative_to(home)
+            link_path = str(Path.home() / relative_to_home).replace(str(home), '~')
+        except ValueError:
+            link_path = str(source_path_obj)
+        platforms[current_platform] = normalize_path(link_path)
     
     config.add_entry(name, platforms)
     config.save()
@@ -201,7 +208,7 @@ def sync(platform: Optional[str] = None, dotfiles_dir: Path = None):
                 continue
             
             backup_name = Path(name).name
-            backup_path = create_backup(dest_path, backup_name, platform)
+            backup_path = create_backup(dest_path, backup_name, platform, dotfiles_dir)
             print(f"Backed up existing: {dest_path}")
             
             if dest_path.is_dir():
