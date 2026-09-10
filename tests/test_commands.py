@@ -137,6 +137,53 @@ class TestAdd:
         assert config.entries["existing.conf"]["linux"] == "~/.config/existing.conf"
 
 
+class TestRecord:
+    def _setup(self, tmp_path):
+        dotfiles_dir = tmp_path / "dotfiles"
+        dotfiles_dir.mkdir()
+        config_path = dotfiles_dir / DOTFILES_CONFIG
+        config = DotfilesConfig(config_path)
+        config.dotfiles_path = str(dotfiles_dir)
+        config.save()
+        return dotfiles_dir, config_path
+
+    def test_record_stores_tilde_for_home_path(self, tmp_path, capsys, monkeypatch):
+        dotfiles_dir, config_path = self._setup(tmp_path)
+
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+
+        stored = dotfiles_dir / "home" / "AGENTS.md"
+        stored.parent.mkdir(parents=True)
+        stored.write_text("content")
+
+        link = home / "AGENTS.md"
+        link.symlink_to(stored)
+
+        os.chdir(dotfiles_dir)
+        commands.record(str(link), dotfiles_dir=dotfiles_dir)
+
+        config = DotfilesConfig(config_path)
+        assert config.entries["home/AGENTS.md"]["linux"] == "~/AGENTS.md"
+
+    def test_add_stores_tilde_for_home_path(self, tmp_path, capsys, monkeypatch):
+        dotfiles_dir, config_path = self._setup(tmp_path)
+
+        home = tmp_path / "home"
+        (home / ".config").mkdir(parents=True)
+        monkeypatch.setenv("HOME", str(home))
+
+        source_file = home / "testfile.conf"
+        source_file.write_text("test content")
+
+        os.chdir(dotfiles_dir)
+        commands.add(str(source_file), {}, dotfiles_dir=dotfiles_dir)
+
+        config = DotfilesConfig(config_path)
+        assert config.entries["testfile.conf"]["linux"] == "~/testfile.conf"
+
+
 class TestEdit:
     def test_edit_platform_with_path(self, tmp_path, capsys):
         dotfiles_dir = tmp_path / "dotfiles"

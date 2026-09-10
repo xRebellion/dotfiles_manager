@@ -11,6 +11,7 @@ from core.platform import (
     get_current_platform,
     expand_path,
     normalize_path,
+    portable_path,
     get_home_dir,
     is_valid_platform,
     SUPPORTED_PLATFORMS
@@ -68,6 +69,31 @@ class TestNormalizePath:
     def test_normalize_windows_env_var(self):
         result = normalize_path("%LOCALAPPDATA%/nvim")
         assert "%LOCALAPPDATA%" not in result or "LOCALAPPDATA" in result
+
+
+class TestPortablePath:
+    def test_home_path_becomes_tilde(self):
+        result = portable_path(str(get_home_dir() / ".config" / "nvim"))
+        assert result == "~/.config/nvim"
+
+    def test_tilde_path_is_idempotent(self):
+        assert portable_path("~/.config/nvim") == "~/.config/nvim"
+
+    def test_home_itself_becomes_tilde(self):
+        assert portable_path(str(get_home_dir())) == "~"
+
+    def test_sibling_of_home_is_not_rewritten(self):
+        sibling = str(get_home_dir().parent / (get_home_dir().name + "-other") / "x")
+        assert portable_path(sibling) == sibling
+
+    def test_path_outside_home_is_unchanged(self):
+        assert portable_path("/usr/bin") == "/usr/bin"
+
+    def test_windows_env_var_is_preserved(self):
+        assert portable_path("%LOCALAPPDATA%/nvim") == "%LOCALAPPDATA%/nvim"
+
+    def test_empty_path_is_unchanged(self):
+        assert portable_path("") == ""
 
 
 class TestGetHomeDir:

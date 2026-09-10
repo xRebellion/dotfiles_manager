@@ -94,7 +94,7 @@ def get_dotfiles_path() -> Path:
     dotfiles_path = config.dotfiles_path
     if dotfiles_path is None:
         raise ValueError("Dotfiles path not configured. Run 'dotfiles init' first.")
-    return Path(dotfiles_path)
+    return Path(os.path.expanduser(dotfiles_path))
 
 
 def load_config_for_dir(dotfiles_dir: Optional[Path] = None) -> tuple:

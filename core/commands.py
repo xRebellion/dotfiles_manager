@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 
-from .platform import get_current_platform, expand_path, normalize_path
+from .platform import get_current_platform, expand_path, portable_path
 from .link_records import DotfilesConfig, load_config_for_dir, DOTFILES_CONFIG
 from .backup import create_backup
 
@@ -23,7 +23,7 @@ def init(dotfiles_path: Optional[Path] = None):
         sys.exit(1)
     
     config = DotfilesConfig(config_path)
-    config.dotfiles_path = str(dotfiles_path)
+    config.dotfiles_path = portable_path(str(dotfiles_path))
     config.save()
     
     print(f"Initialized dotfiles folder at: {dotfiles_path}")
@@ -49,7 +49,7 @@ def add(source_path: str, platforms: Dict[str, str], dotfiles_dir: Path = None):
         name = str(source.resolve().relative_to(dotfiles_dir.resolve()))
         if not platforms:
             current_platform = get_current_platform()
-            platforms[current_platform] = normalize_path(str(Path(source_path).expanduser().resolve()))
+            platforms[current_platform] = portable_path(str(source.resolve()))
         config.add_entry(name, platforms)
         config.save()
         print(f"Added '{name}' to dotfiles folder")
@@ -78,14 +78,7 @@ def add(source_path: str, platforms: Dict[str, str], dotfiles_dir: Path = None):
     
     if not platforms:
         current_platform = get_current_platform()
-        source_path_obj = Path(source_path).expanduser().resolve()
-        home = Path.home()
-        try:
-            relative_to_home = source_path_obj.relative_to(home)
-            link_path = str(Path.home() / relative_to_home).replace(str(home), '~')
-        except ValueError:
-            link_path = str(source_path_obj)
-        platforms[current_platform] = normalize_path(link_path)
+        platforms[current_platform] = portable_path(str(Path(source_path).expanduser().resolve()))
     
     config.add_entry(name, platforms)
     config.save()
@@ -123,10 +116,10 @@ def record(source_path: str, platform: Optional[str] = None, path: Optional[str]
     if path:
         link_path = path
     else:
-        source_resolved = Path(os.path.abspath(str(source)))
-        link_path = str(source_resolved)
+        link_path = os.path.abspath(str(source))
     
-    config.add_entry(name, {current_platform: normalize_path(link_path)})
+    link_path = portable_path(link_path)
+    config.add_entry(name, {current_platform: link_path})
     config.save()
     
     print(f"Recorded '{name}' for {current_platform}: {link_path}")
@@ -144,17 +137,19 @@ def edit(name: str, platform: Optional[str] = None, new_path: Optional[str] = No
     
     if platform is not None:
         if new_path is not None:
-            config.update_entry(name, platform, new_path)
+            stored_path = portable_path(new_path)
+            config.update_entry(name, platform, stored_path)
             config.save()
-            print(f"Updated {platform} path for '{name}' to: {new_path}")
+            print(f"Updated {platform} path for '{name}' to: {stored_path}")
         else:
             current_path = entry.get(platform, '')
             print(f"Current {platform} path for '{name}': {current_path}")
             new_value = input(f"Enter new path (or press Enter to keep current): ").strip()
             if new_value:
-                config.update_entry(name, platform, new_value)
+                stored_path = portable_path(new_value)
+                config.update_entry(name, platform, stored_path)
                 config.save()
-                print(f"Updated {platform} path for '{name}' to: {new_value}")
+                print(f"Updated {platform} path for '{name}' to: {stored_path}")
             else:
                 print("No change made.")
     else:
@@ -169,9 +164,10 @@ def edit(name: str, platform: Optional[str] = None, new_path: Optional[str] = No
             print(f"Current path: {current_path}")
             new_value = input("Enter new path: ").strip()
             if new_value:
-                config.update_entry(name, plat_input, new_value)
+                stored_path = portable_path(new_value)
+                config.update_entry(name, plat_input, stored_path)
                 config.save()
-                print(f"Updated {plat_input} path to: {new_value}")
+                print(f"Updated {plat_input} path to: {stored_path}")
 
 
 def sync(platform: Optional[str] = None, dotfiles_dir: Path = None):

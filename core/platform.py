@@ -40,6 +40,28 @@ def normalize_path(path: str) -> str:
     return os.path.normpath(os.path.expandvars(os.path.expanduser(path)))
 
 
+def portable_path(path: str) -> str:
+    """Normalize a link path for storage, using ~ instead of an absolute home path.
+
+    Keeps stored entries portable across machines/users, so relocating the
+    dotfiles folder or changing the home directory doesn't invalidate records:
+        /home/foo/.config/nvim -> ~/.config/nvim
+    Paths outside the home directory (and platform-specific forms such as
+    %LOCALAPPDATA%/...) are returned normalized but otherwise untouched.
+    """
+    if not path:
+        return path
+
+    normalized = os.path.normpath(os.path.expandvars(os.path.expanduser(path)))
+    home = os.path.normpath(os.path.expanduser('~'))
+
+    if normalized == home:
+        return '~'
+    if normalized.startswith(home + os.sep):
+        return '~' + normalized[len(home):]
+    return normalized
+
+
 def is_valid_platform(platform: str) -> bool:
     """Check if platform is supported."""
     return platform in SUPPORTED_PLATFORMS
