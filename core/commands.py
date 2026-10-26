@@ -304,6 +304,34 @@ def remove(name: str, platform: Optional[str] = None, dotfiles_dir: Path = None)
     print(f"Removed entry '{name}'")
 
 
+def link_status(source_path: Path, dest_str: str, platform: str) -> str:
+    """How one record's destination relates to its repo source.
+
+    The link lives at the destination, so the source alone cannot say whether
+    the entry works -- a missing link and a stale record both leave the source
+    in place. Returns one of:
+
+      ✓  destination is a symlink resolving to the source
+      -  destination is absent (this machine has not been synced)
+      ✗  source is gone, or the destination is not this link
+    """
+    if platform != get_current_platform():
+        # Another platform's destination cannot be judged from here.
+        return ""
+
+    if not source_path.exists() and not source_path.is_symlink():
+        return " ✗"
+
+    dest_path = expand_path(dest_str)
+    if not dest_path.exists() and not dest_path.is_symlink():
+        return " -"
+
+    if dest_path.is_symlink() and dest_path.resolve() == source_path.resolve():
+        return " ✓"
+
+    return " ✗"
+
+
 def list_entries(dotfiles_dir: Path = None):
     """List all link records."""
     config, dotfiles_dir = load_config_for_dir(dotfiles_dir)
@@ -319,12 +347,12 @@ def list_entries(dotfiles_dir: Path = None):
     
     for name, entry_paths in entries.items():
         source_path = dotfiles_dir / name
-        exists = "✓" if source_path.exists() else "✗"
+        # Health is a property of the destination link, not of the source alone.
         
         first = True
         for plat, path in entry_paths.items():
             if first:
-                print(f"{name:<20} {plat:<10} {path} {exists}")
+                print(f"{name:<20} {plat:<10} {path}{link_status(source_path, path, plat)}")
                 first = False
             else:
-                print(f"{'':<20} {plat:<10} {path}")
+                print(f"{'':<20} {plat:<10} {path}{link_status(source_path, path, plat)}")
